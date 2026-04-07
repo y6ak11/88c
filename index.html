@@ -43,6 +43,13 @@ h1{
   cursor:pointer;
 }
 
+/* زر تفعيل الإشعارات */
+#enableNotifBtn{
+  background:#33ccff;
+  color:white;
+  flex:1 1 200px;
+}
+
 /* الحاوية */
 #ordersContainer{
   display:grid;
@@ -144,6 +151,7 @@ button{
   <input id="filterItem" placeholder="اسم الصنف">
   <button id="todayProfitBtn">ربح اليوم</button>
   <button id="monthProfitBtn">ربح الشهر</button>
+  <button id="enableNotifBtn">تفعيل الإشعارات والصوت</button>
 </div>
 
 <div id="profitDisplay"></div>
@@ -167,6 +175,7 @@ const filterTable = document.getElementById("filterTable");
 const filterItem = document.getElementById("filterItem");
 const todayProfitBtn = document.getElementById("todayProfitBtn");
 const monthProfitBtn = document.getElementById("monthProfitBtn");
+const enableNotifBtn = document.getElementById("enableNotifBtn");
 const profitDisplay = document.getElementById("profitDisplay");
 
 let allOrders = [];
@@ -174,13 +183,12 @@ let allOrders = [];
 // ===== صوت التنبيه =====
 const audio = new Audio("https://freesound.org/data/previews/341/341695_62461-lq.mp3");
 
-// ===== طلب الإذن للتنبيهات =====
-function enableNotifications() {
-  if(Notification.permission !== "granted"){
-    Notification.requestPermission();
-  }
-}
-window.addEventListener("click", enableNotifications);
+// ===== تمكين الإشعارات =====
+enableNotifBtn.onclick = ()=>{
+  Notification.requestPermission().then(p=>{
+    if(p==="granted") alert("تم تفعيل الإشعارات والصوت!");
+  });
+};
 
 // ===== جلب الطلبات =====
 db.ref("orders").on("value", snapshot=>{
@@ -199,13 +207,17 @@ db.ref("orders").on("value", snapshot=>{
     });
   });
 
-  // إشعار وصوت واهتزاز عند طلب جديد
+  // إشعار + صوت + اهتزاز عند طلب جديد
   if(newOrder){
-    if(Notification.permission === "granted"){
-      new Notification("طلب جديد وصل", {body:"يوجد طلب جديد في اللوحة!"});
+    if(Notification.permission==="granted"){
+      new Notification("طلب جديد!", {
+        body:"هناك طلب جديد في اللوحة",
+        icon:"https://cdn-icons-png.flaticon.com/512/4333/4333600.png",
+        vibrate: [500,200,500]
+      });
     }
-    audio.play().catch(()=>{});
-    if("vibrate" in navigator){ navigator.vibrate([500,200,500]); }
+    audio.play().catch(()=>console.log("اضغط على الشاشة لتشغيل الصوت"));
+    if("vibrate" in navigator) navigator.vibrate([500,200,500]);
   }
 
   render();
@@ -277,12 +289,8 @@ function render(){
     // تصفير الطاولة وإضافة للربح اليوم
     card.querySelector(".reset").onclick=()=>{ 
       if(confirm("تصفير الطاولة؟ سيتم إضافة المبلغ للربح اليوم")) {
-        // إضافة للربح اليومي
         const today = new Date().toISOString().slice(0,10);
-        db.ref(`profits/${today}`).transaction(current=>{
-          return (current||0)+tableTotal;
-        });
-        // حذف الطلب
+        db.ref(`profits/${today}`).transaction(current=> (current||0)+tableTotal);
         db.ref(`orders/${o.table}/${o.id}`).remove();
       }
     }
@@ -299,14 +307,13 @@ filterItem.oninput = render;
 todayProfitBtn.onclick = ()=>{
   const today = new Date().toISOString().slice(0,10);
   db.ref(`profits/${today}`).once("value").then(snap=>{
-    const val = snap.val()||0;
-    profitDisplay.textContent = `ربح اليوم: ${val} د.ع`;
+    profitDisplay.textContent = `ربح اليوم: ${(snap.val()||0)} د.ع`;
   });
 }
 
 monthProfitBtn.onclick = ()=>{
   const now = new Date();
-  const month = now.toISOString().slice(0,7); // YYYY-MM
+  const month = now.toISOString().slice(0,7);
   db.ref("profits").once("value").then(snap=>{
     const data = snap.val()||{};
     let total=0;
@@ -317,6 +324,5 @@ monthProfitBtn.onclick = ()=>{
   });
 }
 </script>
-
 </body>
 </html>
