@@ -3,56 +3,56 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>88 Café - Admin Dashboard</title>
+<title>88 Café - لوحة التحكم</title>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
 
 <style>
-body {
+body{
   font-family: Tahoma, sans-serif;
   margin:0;
   background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
   color:white;
-  padding:10px;
 }
 
 /* عنوان */
-h1 {
+h1{
   text-align:center;
+  padding:15px;
   color:#ffd369;
-  margin-bottom:10px;
 }
 
-/* فلاتر */
-#filters {
+/* الفلاتر */
+#filters{
   display:flex;
   flex-wrap:wrap;
   justify-content:center;
   gap:10px;
-  margin-bottom:20px;
+  margin-bottom:15px;
 }
 
-#filters input {
+#filters input, #filters button{
   padding:8px;
   border-radius:10px;
   border:none;
   text-align:center;
   background:rgba(255,255,255,0.1);
   color:white;
+  cursor:pointer;
 }
 
 /* الحاوية */
-#ordersContainer {
+#ordersContainer{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
   gap:15px;
+  padding:10px;
 }
 
-/* كارت الطلب */
-.order-card {
+/* الكارت */
+.order-card{
   background:rgba(255,255,255,0.08);
   backdrop-filter:blur(15px);
   border-radius:15px;
@@ -61,12 +61,12 @@ h1 {
   transition:0.3s;
 }
 
-.order-card:hover {
+.order-card:hover{
   transform:scale(1.03);
 }
 
 /* الهيدر */
-.order-header {
+.order-header{
   display:flex;
   justify-content:space-between;
   font-weight:bold;
@@ -74,7 +74,7 @@ h1 {
 }
 
 /* العناصر */
-.order-item {
+.order-item{
   background:rgba(255,255,255,0.12);
   margin:4px 0;
   padding:6px;
@@ -83,37 +83,56 @@ h1 {
 }
 
 /* الحالة */
-.status {
+.status{
   padding:4px 8px;
   border-radius:8px;
   font-size:12px;
 }
+
 .pending{ background:orange; }
 .done{ background:green; }
 .cancel{ background:red; }
 
-/* أزرار */
-.actions {
+/* الأزرار */
+.actions{
   display:flex;
   gap:6px;
   margin-top:10px;
+  flex-wrap:wrap;
 }
-button {
+
+button{
   flex:1;
   padding:6px;
   border:none;
   border-radius:8px;
   cursor:pointer;
 }
+
 .delete{ background:#ff4d4d; color:white; }
 .edit{ background:#4da6ff; color:white; }
 .statusBtn{ background:#ffd369; }
-.clearTable{ background:#ff9900; color:white; }
-.calcProfit{ background:#4dff88; color:black; }
+.reset{ background:#33cc33; color:white; }
+.profitBtn{ background:#ff9933; color:white; }
 
-/* الملاحظة والمجموع */
-.note{ font-size:13px; color:#ccc; }
-.total{ text-align:right; margin-top:8px; font-weight:bold; }
+.note{
+  font-size:13px;
+  color:#ccc;
+}
+
+.total{
+  text-align:right;
+  margin-top:8px;
+  font-weight:bold;
+}
+
+/* ربح */
+#profitDisplay{
+  text-align:center;
+  margin-bottom:15px;
+  font-size:18px;
+  color:#ffd369;
+}
 </style>
 </head>
 <body>
@@ -123,9 +142,11 @@ button {
 <div id="filters">
   <input id="filterTable" placeholder="رقم الطاولة">
   <input id="filterItem" placeholder="اسم الصنف">
-  <button id="profitDayBtn" class="calcProfit">ربح اليوم</button>
-  <button id="profitMonthBtn" class="calcProfit">ربح الشهر</button>
+  <button id="todayProfitBtn">ربح اليوم</button>
+  <button id="monthProfitBtn">ربح الشهر</button>
 </div>
+
+<div id="profitDisplay"></div>
 
 <div id="ordersContainer"></div>
 
@@ -136,52 +157,57 @@ const firebaseConfig = {
   authDomain: "cafe-51180.firebaseapp.com",
   databaseURL: "https://cafe-51180-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "cafe-51180",
-  messagingSenderId: "723529852593",
-  appId: "1:723529852593:web:f7899b203b47c2f5b6a490"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const messaging = firebase.messaging();
 
+// ===== عناصر =====
 const container = document.getElementById("ordersContainer");
 const filterTable = document.getElementById("filterTable");
 const filterItem = document.getElementById("filterItem");
+const todayProfitBtn = document.getElementById("todayProfitBtn");
+const monthProfitBtn = document.getElementById("monthProfitBtn");
+const profitDisplay = document.getElementById("profitDisplay");
 
 let allOrders = [];
-let todayProfit = 0;
 
-// ===== طلب إذن الإشعارات =====
-Notification.requestPermission().then(p=>{
-  if(p==="granted"){
-    console.log("الإشعارات مسموحة");
-    messaging.getToken({ vapidKey:"YOUR_PUBLIC_VAPID_KEY" }).then(t=>{
-      console.log("Device token:",t);
-    });
+// ===== صوت التنبيه =====
+const audio = new Audio("https://freesound.org/data/previews/341/341695_62461-lq.mp3");
+
+// ===== طلب الإذن للتنبيهات =====
+function enableNotifications() {
+  if(Notification.permission !== "granted"){
+    Notification.requestPermission();
   }
-});
+}
+window.addEventListener("click", enableNotifications);
 
-// ===== استقبال إشعار فور وصول الطلب =====
-messaging.onMessage(payload=>{
-  const n = payload.notification;
-  new Notification(n.title, { body:n.body, icon:n.icon, image:n.image });
-  if(n.sound){
-    new Audio(n.sound).play();
-  }
-  if(n.vibrate && navigator.vibrate) navigator.vibrate([300,100,300]);
-});
-
-// ===== جلب البيانات =====
+// ===== جلب الطلبات =====
 db.ref("orders").on("value", snapshot=>{
   const data = snapshot.val() || {};
+  let newOrder = false;
   allOrders = [];
+
   Object.keys(data).forEach(table=>{
     Object.keys(data[table]).forEach(id=>{
-      allOrders.push({
-        id, table, ...data[table][id]
-      });
+      const order = data[table][id];
+      if(!order.seen){
+        newOrder = true;
+        db.ref(`orders/${table}/${id}/seen`).set(true);
+      }
+      allOrders.push({id, table, ...order});
     });
   });
+
+  // إشعار وصوت واهتزاز عند طلب جديد
+  if(newOrder){
+    if(Notification.permission === "granted"){
+      new Notification("طلب جديد وصل", {body:"يوجد طلب جديد في اللوحة!"});
+    }
+    audio.play().catch(()=>{});
+    if("vibrate" in navigator){ navigator.vibrate([500,200,500]); }
+  }
+
   render();
 });
 
@@ -192,74 +218,105 @@ function render(){
   const iFilter = filterItem.value.toLowerCase();
 
   allOrders
-    .filter(o=>{
-      const tableMatch = tFilter ? o.table==tFilter : true;
-      const itemMatch = iFilter ? o.orders.some(x=>x.name.toLowerCase().includes(iFilter)) : true;
-      return tableMatch && itemMatch;
-    })
-    .sort((a,b)=>b.timestamp-a.timestamp)
-    .forEach(o=>{
-      const card = document.createElement("div");
-      card.className="order-card";
-      const statusClass = o.status || "pending";
+  .filter(o=>{
+    const tableMatch = tFilter ? o.table==tFilter : true;
+    const itemMatch = iFilter ? o.orders.some(x=>x.name.toLowerCase().includes(iFilter)) : true;
+    return tableMatch && itemMatch;
+  })
+  .sort((a,b)=>b.timestamp-a.timestamp)
+  .forEach(o=>{
+    const card=document.createElement("div");
+    card.className="order-card";
+    const statusClass = o.status || "pending";
 
-      card.innerHTML=`
-        <div class="order-header">
-          <span>طاولة ${o.table}</span>
-          <span class="status ${statusClass}">
-            ${statusClass==="done"?"جاهز":statusClass==="cancel"?"ملغي":"قيد التحضير"}
-          </span>
+    card.innerHTML=`
+      <div class="order-header">
+        <span>طاولة ${o.table}</span>
+        <span class="status ${statusClass}">
+          ${statusClass==="done"?"جاهز":statusClass==="cancel"?"ملغي":"قيد التحضير"}
+        </span>
+      </div>
+
+      ${o.orders.map(i=>`
+        <div class="order-item">
+          ${i.name} ×${i.quantity} (${i.price*i.quantity} د.ع)
         </div>
-        ${o.orders.map(i=>`<div class="order-item">${i.name} ×${i.quantity}</div>`).join("")}
-        <div class="note">${o.note||""}</div>
-        <div class="total">${o.orders.reduce((s,i)=>s+i.price*i.quantity,0)} د.ع</div>
-        <div class="actions">
-          <button class="delete">حذف</button>
-          <button class="edit">تعديل</button>
-          <button class="statusBtn">تغيير الحالة</button>
-          <button class="clearTable">تصفير الطاولة</button>
-        </div>
-      `;
+      `).join("")}
 
-      // حذف
-      card.querySelector(".delete").onclick=()=>db.ref(`orders/${o.table}/${o.id}`).remove();
+      <div class="note">${o.note || ""}</div>
 
-      // تعديل
-      card.querySelector(".edit").onclick=()=>{
-        const newNote = prompt("عدل الملاحظة:", o.note||"");
-        if(newNote!==null) db.ref(`orders/${o.table}/${o.id}`).update({note:newNote});
-      };
+      <div class="total">
+        ${o.orders.reduce((s,i)=>s+i.price*i.quantity,0)} د.ع
+      </div>
 
-      // تغيير الحالة
-      card.querySelector(".statusBtn").onclick=()=>{
-        const newStatus = prompt("اكتب الحالة: pending / done / cancel");
-        if(newStatus) db.ref(`orders/${o.table}/${o.id}`).update({status:newStatus});
-      };
+      <div class="actions">
+        <button class="delete">حذف</button>
+        <button class="edit">تعديل</button>
+        <button class="statusBtn">تغيير الحالة</button>
+        <button class="reset">تصفير الطاولة</button>
+      </div>
+    `;
 
-      // تصفير الطاولة + إضافة للربح اليوم
-      card.querySelector(".clearTable").onclick=()=>{
-        const total = o.orders.reduce((s,i)=>s+i.price*i.quantity,0);
-        todayProfit += total;
-        db.ref(`orders/${o.table}`).remove();
-        alert(`تم تصفير الطاولة ${o.table}. تمت إضافة ${total} د.ع للربح اليوم.`);
-      };
+    const tableTotal = o.orders.reduce((s,i)=>s+i.price*i.quantity,0);
 
-      container.appendChild(card);
-    });
+    // حذف
+    card.querySelector(".delete").onclick=()=>{ if(confirm("حذف الطلب؟")) db.ref(`orders/${o.table}/${o.id}`).remove(); }
+
+    // تعديل ملاحظة
+    card.querySelector(".edit").onclick=()=>{ 
+      let newNote = prompt("عدل الملاحظة:", o.note || "");
+      if(newNote !== null) db.ref(`orders/${o.table}/${o.id}`).update({note:newNote});
+    }
+
+    // تغيير الحالة
+    card.querySelector(".statusBtn").onclick=()=>{ 
+      let newStatus = prompt("اكتب الحالة: pending / done / cancel");
+      if(newStatus) db.ref(`orders/${o.table}/${o.id}`).update({status:newStatus});
+    }
+
+    // تصفير الطاولة وإضافة للربح اليوم
+    card.querySelector(".reset").onclick=()=>{ 
+      if(confirm("تصفير الطاولة؟ سيتم إضافة المبلغ للربح اليوم")) {
+        // إضافة للربح اليومي
+        const today = new Date().toISOString().slice(0,10);
+        db.ref(`profits/${today}`).transaction(current=>{
+          return (current||0)+tableTotal;
+        });
+        // حذف الطلب
+        db.ref(`orders/${o.table}/${o.id}`).remove();
+      }
+    }
+
+    container.appendChild(card);
+  });
 }
 
-// ===== حساب الربح =====
-document.getElementById("profitDayBtn").onclick=()=>{
-  alert(`ربح اليوم: ${todayProfit} د.ع`);
-};
-document.getElementById("profitMonthBtn").onclick=()=>{
-  alert(`ربح الشهر: ${(todayProfit*30).toFixed(0)} د.ع تقريبياً`);
-};
-
 // ===== فلترة =====
-filterTable.oninput=render;
-filterItem.oninput=render;
+filterTable.oninput = render;
+filterItem.oninput = render;
 
+// ===== حساب الربح =====
+todayProfitBtn.onclick = ()=>{
+  const today = new Date().toISOString().slice(0,10);
+  db.ref(`profits/${today}`).once("value").then(snap=>{
+    const val = snap.val()||0;
+    profitDisplay.textContent = `ربح اليوم: ${val} د.ع`;
+  });
+}
+
+monthProfitBtn.onclick = ()=>{
+  const now = new Date();
+  const month = now.toISOString().slice(0,7); // YYYY-MM
+  db.ref("profits").once("value").then(snap=>{
+    const data = snap.val()||{};
+    let total=0;
+    Object.keys(data).forEach(day=>{
+      if(day.startsWith(month)) total+=data[day];
+    });
+    profitDisplay.textContent = `ربح الشهر: ${total} د.ع`;
+  });
+}
 </script>
+
 </body>
 </html>
