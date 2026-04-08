@@ -11,12 +11,12 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage(function(payload) {
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
+messaging.onBackgroundMessage(payload=>{
+  const title = payload.notification.title;
+  const options = {
     body: payload.notification.body,
-    icon: "https://cdn-icons-png.flaticon.com/512/2910/2910761.png",
-    vibrate: [500,200,500]
+    icon: "https://cdn-icons-png.flaticon.com/512/3121/3121803.png",
+    vibrate:[500,200,500]
   };
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  self.registration.showNotification(title, options);
 });
