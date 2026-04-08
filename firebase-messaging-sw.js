@@ -1,8 +1,6 @@
-// firebase-messaging-sw.js
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
 
-// ===== Firebase Config نفس config الأدمن =====
 firebase.initializeApp({
   apiKey: "AIzaSyD4pAwLVIJp-YOzMX2WDqxAseTDxP3lek8",
   authDomain: "cafe-51180.firebaseapp.com",
@@ -13,18 +11,12 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// استقبال الإشعارات في الخلفية
 messaging.onBackgroundMessage(function(payload) {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: payload.notification.icon, // أيقونة
-    image: payload.notification.image, // صورة كبيرة
-    vibrate: [200, 100, 200], // اهتزاز
-    sound: payload.notification.sound // صوت
+    icon: "https://cdn-icons-png.flaticon.com/512/2910/2910761.png",
+    vibrate: [500,200,500]
   };
-
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
