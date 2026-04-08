@@ -7,40 +7,117 @@
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <style>
 body{
-  font-family: Tahoma,sans-serif;
+  font-family: 'Cairo', Tahoma;
   margin:0;
-  background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-  color:white;
+  background: linear-gradient(135deg,#0b0f0c,#1a2a22,#2f4f3f);
+  color:#f1f1f1;
 }
-h1{text-align:center;padding:15px;color:#ffd369;}
-#filters{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:15px;}
-#filters input,#filters button{padding:8px;border-radius:10px;border:none;text-align:center;background:rgba(255,255,255,0.1);color:white;cursor:pointer;}
-#ordersContainer{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;padding:10px;}
-.order-card{background:rgba(255,255,255,0.08);backdrop-filter:blur(15px);border-radius:15px;padding:15px;box-shadow:0 6px 20px rgba(0,0,0,0.4);transition:0.3s;}
-.order-card:hover{transform:scale(1.03);}
-.order-header{display:flex;justify-content:space-between;font-weight:bold;margin-bottom:10px;}
-.order-item{background:rgba(255,255,255,0.12);margin:4px 0;padding:6px;border-radius:8px;font-size:14px;}
-.status{padding:4px 8px;border-radius:8px;font-size:12px;}
-.pending{background:orange;}
-.done{background:green;}
-.cancel{background:red;}
-.actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
-button{flex:1;padding:6px;border:none;border-radius:8px;cursor:pointer;}
-.delete{background:#ff4d4d;color:white;}
-.edit{background:#4da6ff;color:white;}
-.statusBtn{background:#ffd369;}
-.reset{background:#33cc33;color:white;}
-.profitBtn{background:#ff9933;color:white;}
-.note{font-size:13px;color:#ccc;}
-.total{text-align:right;margin-top:8px;font-weight:bold;}
-#profitDisplay{text-align:center;margin-bottom:15px;font-size:18px;color:#ffd369;}
+
+h1{
+  text-align:center;
+  padding:20px;
+  color:#c7a86b;
+}
+
+/* فلاتر */
+#filters{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:10px;
+  margin-bottom:15px;
+}
+
+#filters input, #filters button{
+  padding:10px;
+  border-radius:12px;
+  border:none;
+  background:rgba(255,255,255,0.08);
+  color:white;
+  cursor:pointer;
+}
+
+/* كروت */
+#ordersContainer{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:20px;
+  padding:15px;
+}
+
+.order-card{
+  background:rgba(255,255,255,0.06);
+  backdrop-filter:blur(18px);
+  border-radius:20px;
+  padding:15px;
+  transition:0.3s;
+}
+
+.order-header{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+
+/* ✨ وميض الطلب */
+@keyframes blink {
+  0%{box-shadow:0 0 10px #ff0000;}
+  50%{box-shadow:0 0 25px #ff0000;}
+  100%{box-shadow:0 0 10px #ff0000;}
+}
+
+.blink{
+  animation: blink 1s infinite;
+}
+
+.status{
+  padding:5px 10px;
+  border-radius:10px;
+  font-size:12px;
+}
+
+.pending{ background:orange; }
+.done{ background:green; }
+.cancel{ background:red; }
+
+.order-item{
+  background:rgba(255,255,255,0.1);
+  margin:5px 0;
+  padding:8px;
+  border-radius:10px;
+}
+
+.actions{
+  display:flex;
+  gap:5px;
+  margin-top:10px;
+}
+
+button{
+  flex:1;
+  padding:6px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+}
+
+.delete{ background:red; }
+.edit{ background:blue; }
+.statusBtn{ background:#c7a86b; }
+.reset{ background:green; }
+
+.total{
+  text-align:right;
+  margin-top:10px;
+  color:#c7a86b;
+}
 </style>
 </head>
+
 <body>
 
 <h1>لوحة تحكم 88 Café ☕</h1>
@@ -48,159 +125,169 @@ button{flex:1;padding:6px;border:none;border-radius:8px;cursor:pointer;}
 <div id="filters">
   <input id="filterTable" placeholder="رقم الطاولة">
   <input id="filterItem" placeholder="اسم الصنف">
-  <button id="todayProfitBtn">ربح اليوم</button>
-  <button id="monthProfitBtn">ربح الشهر</button>
-  <button id="enableNotifBtn">تفعيل الإشعارات</button>
+  <button id="enableNotif">تفعيل الصوت 🔊</button>
+  <button onclick="testSound()">اختبار الصوت</button>
 </div>
 
-<div id="profitDisplay"></div>
 <div id="ordersContainer"></div>
 
 <script>
+// Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyD4pAwLVIJp-YOzMX2WDqxAseTDxP3lek8",
-  authDomain: "cafe-51180.firebaseapp.com",
-  databaseURL: "https://cafe-51180-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "cafe-51180",
-  messagingSenderId: "723529852593",
-  appId: "1:723529852593:web:f7899b203b47c2f5b6a490"
+  apiKey: "YOUR_KEY",
+  databaseURL: "https://cafe-51180-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const messaging = firebase.messaging();
 
 const container = document.getElementById("ordersContainer");
-const filterTable = document.getElementById("filterTable");
-const filterItem = document.getElementById("filterItem");
-const todayProfitBtn = document.getElementById("todayProfitBtn");
-const monthProfitBtn = document.getElementById("monthProfitBtn");
-const profitDisplay = document.getElementById("profitDisplay");
-const enableNotifBtn = document.getElementById("enableNotifBtn");
+const enableNotifBtn = document.getElementById("enableNotif");
 
-let allOrders=[];
+let notifEnabled = false;
+let audioUnlocked = false;
+let allOrders = [];
 
-// 🔔 تفعيل الإشعارات مع التحقق
+// 🔊 صوت قوي
+const audio = new Audio("https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3");
+audio.volume = 1;
+
+// 🔓 فك حظر الصوت
+document.body.addEventListener("click", ()=>{
+  if(!audioUnlocked){
+    audio.play().then(()=>{
+      audio.pause();
+      audio.currentTime=0;
+      audioUnlocked = true;
+    }).catch(()=>{});
+  }
+});
+
+// تشغيل صوت قوي
+function playStrongAlert(){
+  let count=0;
+  const i=setInterval(()=>{
+    audio.currentTime=0;
+    audio.play().catch(()=>{});
+    count++;
+    if(count>=5) clearInterval(i);
+  },1000);
+}
+
+// زر التفعيل
 enableNotifBtn.onclick = async ()=>{
   try{
-    await Notification.requestPermission();
-    if(Notification.permission!=="granted"){
-      alert("الإشعارات لن تعمل لأنك رفضت الإذن");
-      return;
+    await audio.play();
+    audio.pause();
+    audio.currentTime=0;
+
+    const perm = await Notification.requestPermission();
+    if(perm==="granted"){
+      notifEnabled=true;
+      alert("تم تفعيل الصوت والإشعارات ✅");
     }
-    // تسجيل service worker
-    if('serviceWorker' in navigator){
-      await navigator.serviceWorker.register('firebase-messaging-sw.js');
-      messaging.useServiceWorker(navigator.serviceWorker.controller);
-    }
-    const token = await messaging.getToken({vapidKey:"BB4BcQ823aYdVlg7_DJLUJ9PHHISTZumN4DVc3FO7uICfslmc1SgEyXP6BGOxMCGXKXM420rd4YYEMisbfR6ffc"});
-    console.log("FCM Token:", token);
-    alert("تم تفعيل الإشعارات بنجاح ✅");
-  }catch(e){
-    alert("حدث خطأ: "+e.message);
+  }catch{
+    alert("اضغط على الشاشة مرة لتفعيل الصوت");
   }
 };
 
-// 🎵 صوت التنبيه
-const audio = new Audio("https://freesound.org/data/previews/341/341695_62461-lq.mp3");
+// اختبار
+function testSound(){
+  playStrongAlert();
+}
 
-// 🔄 جلب الطلبات
+// جلب الطلبات
 db.ref("orders").on("value", snapshot=>{
   const data = snapshot.val()||{};
+  let newOrder=false;
   allOrders=[];
+
   Object.keys(data).forEach(table=>{
     Object.keys(data[table]).forEach(id=>{
-      const order = data[table][id];
+      const order=data[table][id];
+
+      if(!order.seen){
+        newOrder=true;
+        db.ref(`orders/${table}/${id}/seen`).set(true);
+      }
+
       allOrders.push({id,table,...order});
     });
   });
+
+  if(newOrder && notifEnabled){
+    new Notification("طلب جديد ☕");
+    playStrongAlert();
+    navigator.vibrate([500,200,500]);
+  }
+
   render();
 });
 
-// عرض الطلبات
+// عرض
 function render(){
   container.innerHTML="";
-  const tFilter = filterTable.value.trim();
-  const iFilter = filterItem.value.toLowerCase();
 
-  allOrders
-  .filter(o=>{
-    const tableMatch = tFilter ? o.table==tFilter : true;
-    const itemMatch = iFilter ? o.orders.some(x=>x.name.toLowerCase().includes(iFilter)) : true;
-    return tableMatch && itemMatch;
-  })
-  .sort((a,b)=>b.timestamp-a.timestamp)
-  .forEach(o=>{
+  allOrders.forEach(o=>{
     const card=document.createElement("div");
     card.className="order-card";
-    const statusClass = o.status || "pending";
+
+    // ✨ وميض إذا جديد
+    if(o.seen === true && Date.now() - o.timestamp < 120000){
+      card.classList.add("blink");
+
+      setTimeout(()=>{
+        card.classList.remove("blink");
+      },120000);
+    }
+
     card.innerHTML=`
       <div class="order-header">
         <span>طاولة ${o.table}</span>
-        <span class="status ${statusClass}">
-          ${statusClass==="done"?"جاهز":statusClass==="cancel"?"ملغي":"قيد التحضير"}
+        <span class="status ${o.status || "pending"}">
+        ${o.status==="done"?"جاهز":"قيد التحضير"}
         </span>
       </div>
-      ${o.orders.map(i=>`<div class="order-item">${i.name} ×${i.quantity} (${i.price*i.quantity} د.ع)</div>`).join("")}
-      <div class="note">${o.note||""}</div>
-      <div class="total">${o.orders.reduce((s,i)=>s+i.price*i.quantity,0)} د.ع</div>
+
+      ${o.orders.map(i=>`
+        <div class="order-item">
+          ${i.name} ×${i.quantity}
+        </div>
+      `).join("")}
+
+      <div class="total">
+        ${o.orders.reduce((s,i)=>s+i.price*i.quantity,0)} د.ع
+      </div>
+
       <div class="actions">
         <button class="delete">حذف</button>
-        <button class="edit">تعديل</button>
-        <button class="statusBtn">تغيير الحالة</button>
-        <button class="reset">تصفير الطاولة</button>
+        <button class="edit">ملاحظة</button>
+        <button class="statusBtn">حالة</button>
+        <button class="reset">تصفير</button>
       </div>
     `;
-    const tableTotal = o.orders.reduce((s,i)=>s+i.price*i.quantity,0);
 
-    card.querySelector(".delete").onclick=()=>{ if(confirm("حذف الطلب؟")) db.ref(`orders/${o.table}/${o.id}`).remove(); }
-    card.querySelector(".edit").onclick=()=>{ 
-      let newNote = prompt("عدل الملاحظة:", o.note||"");
-      if(newNote!==null) db.ref(`orders/${o.table}/${o.id}`).update({note:newNote});
+    const total = o.orders.reduce((s,i)=>s+i.price*i.quantity,0);
+
+    card.querySelector(".delete").onclick=()=> db.ref(`orders/${o.table}/${o.id}`).remove();
+
+    card.querySelector(".edit").onclick=()=>{
+      let n=prompt("ملاحظة:", o.note||"");
+      if(n!==null) db.ref(`orders/${o.table}/${o.id}`).update({note:n});
     }
-    card.querySelector(".statusBtn").onclick=()=>{ 
-      let newStatus = prompt("اكتب الحالة: pending / done / cancel");
-      if(newStatus) db.ref(`orders/${o.table}/${o.id}`).update({status:newStatus});
+
+    card.querySelector(".statusBtn").onclick=()=>{
+      let s=prompt("pending / done / cancel");
+      if(s) db.ref(`orders/${o.table}/${o.id}`).update({status:s});
     }
-    card.querySelector(".reset").onclick=()=>{ 
-      if(confirm("تصفير الطاولة؟ سيتم إضافة المبلغ للربح اليوم")){
-        const today = new Date().toISOString().slice(0,10);
-        db.ref(`profits/${today}`).transaction(current=> (current||0)+tableTotal );
-        db.ref(`orders/${o.table}/${o.id}`).remove();
-      }
+
+    card.querySelector(".reset").onclick=()=>{
+      db.ref(`orders/${o.table}/${o.id}`).remove();
     }
 
     container.appendChild(card);
   });
 }
-
-// فلترة
-filterTable.oninput=render;
-filterItem.oninput=render;
-
-// حساب الربح
-todayProfitBtn.onclick=()=>{
-  const today = new Date().toISOString().slice(0,10);
-  db.ref(`profits/${today}`).once("value").then(snap=>{ profitDisplay.textContent=`ربح اليوم: ${snap.val()||0} د.ع`; });
-}
-monthProfitBtn.onclick=()=>{
-  const now = new Date();
-  const month = now.toISOString().slice(0,7);
-  db.ref("profits").once("value").then(snap=>{
-    const data = snap.val()||{};
-    let total=0;
-    Object.keys(data).forEach(day=>{ if(day.startsWith(month)) total+=data[day]; });
-    profitDisplay.textContent=`ربح الشهر: ${total} د.ع`;
-  });
-}
-
-// استقبال الرسائل مباشرة في الصفحة (Foreground)
-messaging.onMessage(payload=>{
-  console.log("رسالة جديدة:", payload);
-  new Notification(payload.notification.title, payload.notification);
-  audio.play().catch(()=>{});
-  if("vibrate" in navigator) navigator.vibrate([500,200,500]);
-});
 </script>
+
 </body>
 </html>
