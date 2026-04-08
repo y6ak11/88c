@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>88 Café - لوحة التحكم</title>
 
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -16,33 +17,13 @@ body{
   color:#fff;
 }
 
-/* 🔥 بانر التنبيه */
-#alertBanner{
-  position:fixed;
-  top:-80px;
-  left:50%;
-  transform:translateX(-50%);
-  background:linear-gradient(45deg,#ff0000,#ff6600);
-  padding:15px 30px;
-  border-radius:12px;
-  font-weight:bold;
-  box-shadow:0 10px 30px rgba(0,0,0,0.5);
-  transition:0.5s;
-  z-index:999;
-}
-
-#alertBanner.show{
-  top:20px;
-}
-
-/* العنوان */
 h1{
   text-align:center;
   padding:20px;
   color:#d4af37;
 }
 
-/* الفلاتر */
+/* فلاتر */
 #filters{
   display:flex;
   flex-wrap:wrap;
@@ -67,7 +48,7 @@ h1{
   color:black;
 }
 
-/* الكروت */
+/* كروت الطلبات */
 #ordersContainer{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
@@ -82,22 +63,22 @@ h1{
   backdrop-filter:blur(15px);
   box-shadow:0 10px 25px rgba(0,0,0,0.6);
   transition:0.3s;
+  position:relative;
 }
 
 .order-card:hover{
-  transform:translateY(-5px) scale(1.02);
+  transform:translateY(-5px);
 }
 
-/* ✨ وميض احترافي */
+/* وميض الطلب الجديد */
 @keyframes blink {
-  0%{box-shadow:0 0 5px red;}
-  50%{box-shadow:0 0 30px red;}
-  100%{box-shadow:0 0 5px red;}
+  0%{box-shadow:0 0 10px red;}
+  50%{box-shadow:0 0 25px red;}
+  100%{box-shadow:0 0 10px red;}
 }
 
 .blink{
   animation:blink 1s infinite;
-  border:1px solid red;
 }
 
 .order-header{
@@ -137,12 +118,14 @@ h1{
   margin-top:10px;
 }
 
-button{
+.actions button{
   flex:1;
   padding:6px;
   border:none;
   border-radius:10px;
   cursor:pointer;
+  font-weight:bold;
+  transition:0.2s;
 }
 
 .delete{background:#ff4d4d;}
@@ -153,8 +136,6 @@ button{
 </head>
 
 <body>
-
-<div id="alertBanner">🚨 طلب جديد وصل</div>
 
 <h1>☕ لوحة تحكم 88 Café</h1>
 
@@ -168,7 +149,7 @@ button{
 <div id="ordersContainer"></div>
 
 <script>
-// Firebase
+// ===== Firebase =====
 const firebaseConfig = {
   apiKey: "YOUR_KEY",
   databaseURL: "https://cafe-51180-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -178,58 +159,42 @@ const db = firebase.database();
 
 const container = document.getElementById("ordersContainer");
 const enableNotifBtn = document.getElementById("enableNotif");
-const alertBanner = document.getElementById("alertBanner");
+const filterTable = document.getElementById("filterTable");
+const filterItem = document.getElementById("filterItem");
 
 let notifEnabled = false;
 let audioUnlocked = false;
 let allOrders = [];
 
-// 🔊 صوت من جهازك
-const audio = new Audio("sound.mp3");
+// ===== صوت من جهازك =====
+const audio = new Audio("sound.mp3"); // ضع ملف الصوت في نفس المجلد
 audio.volume = 1;
 audio.preload = "auto";
 
-// 🔓 فك الحظر
+// ===== فك الحظر الصوتي =====
 document.body.addEventListener("click", ()=>{
   if(!audioUnlocked){
-    audio.play().then(()=>{
-      audio.pause();
-      audio.currentTime=0;
-      audioUnlocked = true;
-    }).catch(()=>{});
+    audio.play().then(()=>{audio.pause(); audio.currentTime=0; audioUnlocked=true;}).catch(()=>{});
   }
 });
 
-// 🔊 + 📳 تنبيه مرتين
+// ===== تشغيل صوت قوي مع تكرار =====
 function playStrongAlert(){
   let count = 0;
-
   function play(){
     audio.currentTime = 0;
     audio.play().catch(()=>{});
-
-    if("vibrate" in navigator){
-      navigator.vibrate([300,150,300,150,500]);
-    }
-
     count++;
-    if(count < 2){
-      setTimeout(play,1200);
+    if(count < 2){ // تكرار مرتين
+      setTimeout(play, 1000);
     }
+    // اهتزاز الهاتف
+    if("vibrate" in navigator) navigator.vibrate([500,200,500]);
   }
-
   play();
 }
 
-// 🚨 بانر
-function showBanner(){
-  alertBanner.classList.add("show");
-  setTimeout(()=>{
-    alertBanner.classList.remove("show");
-  },3000);
-}
-
-// زر التفعيل
+// ===== تفعيل الصوت والإشعارات =====
 enableNotifBtn.onclick = async ()=>{
   try{
     await audio.play();
@@ -237,17 +202,19 @@ enableNotifBtn.onclick = async ()=>{
     audio.currentTime = 0;
 
     const perm = await Notification.requestPermission();
-
     if(perm === "granted"){
       notifEnabled = true;
-      alert("تم تفعيل الصوت ✅");
+      alert("تم تفعيل الصوت والإشعارات ✅");
+    } else {
+      alert("الإشعارات لن تعمل ⚠️");
     }
+
   }catch{
-    alert("اضغط على الشاشة أولاً");
+    alert("اضغط على الصفحة لتفعيل الصوت");
   }
 };
 
-// جلب الطلبات
+// ===== جلب الطلبات =====
 db.ref("orders").on("value", snap=>{
   const data = snap.val() || {};
   let newOrder = false;
@@ -256,41 +223,41 @@ db.ref("orders").on("value", snap=>{
   Object.keys(data).forEach(table=>{
     Object.keys(data[table]).forEach(id=>{
       const o = data[table][id];
-
       if(!o.seen){
         newOrder = true;
         db.ref(`orders/${table}/${id}/seen`).set(true);
       }
-
       allOrders.push({id,table,...o});
     });
   });
 
-  // 🚨 عند طلب جديد
   if(newOrder && notifEnabled){
-    showBanner();       // رسالة
-    playStrongAlert();  // صوت + اهتزاز
-
-    if(Notification.permission === "granted"){
-      new Notification("طلب جديد ☕");
-    }
+    new Notification("طلب جديد ☕","يوجد طلب جديد في اللوحة");
+    playStrongAlert();
   }
 
   render();
 });
 
-// عرض
+// ===== عرض الطلبات =====
 function render(){
   container.innerHTML="";
 
+  const t = filterTable.value.trim();
+  const i = filterItem.value.toLowerCase();
+
   allOrders
+  .filter(o=>{
+    const tMatch = t ? o.table==t : true;
+    const iMatch = i ? o.orders.some(x=>x.name.toLowerCase().includes(i)) : true;
+    return tMatch && iMatch;
+  })
   .sort((a,b)=>b.timestamp-a.timestamp)
   .forEach(o=>{
-
     const card=document.createElement("div");
     card.className="order-card";
 
-    // ✨ وميض
+    // وميض الطلب الجديد لمدة دقيقتين
     if(Date.now() - o.timestamp < 120000){
       card.classList.add("blink");
       setTimeout(()=>card.classList.remove("blink"),120000);
@@ -306,18 +273,53 @@ function render(){
 
       ${o.orders.map(i=>`
         <div class="order-item">
-          ${i.name} ×${i.quantity}
+          ${i.name} ×${i.quantity} (${i.price*i.quantity} د.ع)
         </div>
       `).join("")}
 
       <div class="total">
         ${o.orders.reduce((s,i)=>s+i.price*i.quantity,0)} د.ع
       </div>
+
+      <div class="actions">
+        <button class="delete">حذف</button>
+        <button class="edit">تعديل ملاحظة</button>
+        <button class="statusBtn">تغيير الحالة</button>
+        <button class="reset">تصفير الطاولة</button>
+      </div>
     `;
+
+    const total = o.orders.reduce((s,i)=>s+i.price*i.quantity,0);
+
+    card.querySelector(".delete").onclick = ()=>{ 
+      if(confirm("هل تريد حذف هذا الطلب؟")) db.ref(`orders/${o.table}/${o.id}`).remove(); 
+    };
+
+    card.querySelector(".edit").onclick = ()=>{ 
+      let note = prompt("عدل الملاحظة:", o.note || "");
+      if(note !== null) db.ref(`orders/${o.table}/${o.id}`).update({note}); 
+    };
+
+    card.querySelector(".statusBtn").onclick = ()=>{ 
+      let status = prompt("pending / done / cancel");
+      if(status) db.ref(`orders/${o.table}/${o.id}`).update({status}); 
+    };
+
+    card.querySelector(".reset").onclick = ()=>{ 
+      if(confirm("تصفير الطاولة؟ سيتم إضافة المبلغ للربح اليوم")){
+        db.ref(`profits/${new Date().toISOString().slice(0,10)}`).transaction(curr => (curr||0)+total);
+        db.ref(`orders/${o.table}/${o.id}`).remove();
+      }
+    };
 
     container.appendChild(card);
   });
 }
+
+// ===== فلترة =====
+filterTable.oninput = render;
+filterItem.oninput = render;
+
 </script>
 
 </body>
