@@ -5,43 +5,69 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>88 Café - لوحة التحكم</title>
 
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <style>
 body{
-  font-family: 'Cairo', Tahoma;
   margin:0;
-  background: linear-gradient(135deg,#0b0f0c,#1a2a22,#2f4f3f);
-  color:#f1f1f1;
+  font-family:'Cairo',Tahoma;
+  background:linear-gradient(135deg,#0b0f0c,#1a2a22,#2f4f3f);
+  color:#fff;
 }
 
+/* 🔥 بانر التنبيه */
+#alertBanner{
+  position:fixed;
+  top:-80px;
+  left:50%;
+  transform:translateX(-50%);
+  background:linear-gradient(45deg,#ff0000,#ff6600);
+  padding:15px 30px;
+  border-radius:12px;
+  font-weight:bold;
+  box-shadow:0 10px 30px rgba(0,0,0,0.5);
+  transition:0.5s;
+  z-index:999;
+}
+
+#alertBanner.show{
+  top:20px;
+}
+
+/* العنوان */
 h1{
   text-align:center;
   padding:20px;
-  color:#c7a86b;
+  color:#d4af37;
 }
 
-/* فلاتر */
+/* الفلاتر */
 #filters{
   display:flex;
   flex-wrap:wrap;
   justify-content:center;
   gap:10px;
-  margin-bottom:15px;
+  padding:10px;
 }
 
 #filters input, #filters button{
   padding:10px;
-  border-radius:12px;
   border:none;
+  border-radius:12px;
   background:rgba(255,255,255,0.08);
   color:white;
   cursor:pointer;
+  backdrop-filter:blur(10px);
+  transition:0.3s;
 }
 
-/* كروت */
+#filters button:hover{
+  background:#d4af37;
+  color:black;
+}
+
+/* الكروت */
 #ordersContainer{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
@@ -51,27 +77,34 @@ h1{
 
 .order-card{
   background:rgba(255,255,255,0.06);
-  backdrop-filter:blur(18px);
   border-radius:20px;
   padding:15px;
+  backdrop-filter:blur(15px);
+  box-shadow:0 10px 25px rgba(0,0,0,0.6);
   transition:0.3s;
+}
+
+.order-card:hover{
+  transform:translateY(-5px) scale(1.02);
+}
+
+/* ✨ وميض احترافي */
+@keyframes blink {
+  0%{box-shadow:0 0 5px red;}
+  50%{box-shadow:0 0 30px red;}
+  100%{box-shadow:0 0 5px red;}
+}
+
+.blink{
+  animation:blink 1s infinite;
+  border:1px solid red;
 }
 
 .order-header{
   display:flex;
   justify-content:space-between;
   margin-bottom:10px;
-}
-
-/* ✨ وميض الطلب */
-@keyframes blink {
-  0%{box-shadow:0 0 10px #ff0000;}
-  50%{box-shadow:0 0 25px #ff0000;}
-  100%{box-shadow:0 0 10px #ff0000;}
-}
-
-.blink{
-  animation: blink 1s infinite;
+  font-weight:bold;
 }
 
 .status{
@@ -80,15 +113,22 @@ h1{
   font-size:12px;
 }
 
-.pending{ background:orange; }
-.done{ background:green; }
-.cancel{ background:red; }
+.pending{background:#ff9800;}
+.done{background:#4caf50;}
+.cancel{background:#e53935;}
 
 .order-item{
   background:rgba(255,255,255,0.1);
   margin:5px 0;
   padding:8px;
   border-radius:10px;
+}
+
+.total{
+  text-align:right;
+  margin-top:10px;
+  color:#d4af37;
+  font-weight:bold;
 }
 
 .actions{
@@ -105,28 +145,24 @@ button{
   cursor:pointer;
 }
 
-.delete{ background:red; }
-.edit{ background:blue; }
-.statusBtn{ background:#c7a86b; }
-.reset{ background:green; }
-
-.total{
-  text-align:right;
-  margin-top:10px;
-  color:#c7a86b;
-}
+.delete{background:#ff4d4d;}
+.edit{background:#2196f3;}
+.statusBtn{background:#d4af37; color:black;}
+.reset{background:#2ecc71;}
 </style>
 </head>
 
 <body>
 
-<h1>لوحة تحكم 88 Café ☕</h1>
+<div id="alertBanner">🚨 طلب جديد وصل</div>
+
+<h1>☕ لوحة تحكم 88 Café</h1>
 
 <div id="filters">
   <input id="filterTable" placeholder="رقم الطاولة">
   <input id="filterItem" placeholder="اسم الصنف">
   <button id="enableNotif">تفعيل الصوت 🔊</button>
-  <button onclick="testSound()">اختبار الصوت</button>
+  <button onclick="playStrongAlert()">اختبار الصوت</button>
 </div>
 
 <div id="ordersContainer"></div>
@@ -142,16 +178,18 @@ const db = firebase.database();
 
 const container = document.getElementById("ordersContainer");
 const enableNotifBtn = document.getElementById("enableNotif");
+const alertBanner = document.getElementById("alertBanner");
 
 let notifEnabled = false;
 let audioUnlocked = false;
 let allOrders = [];
 
-// 🔊 صوت قوي
-const audio = new Audio("https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3");
+// 🔊 صوت من جهازك
+const audio = new Audio("sound.mp3");
 audio.volume = 1;
+audio.preload = "auto";
 
-// 🔓 فك حظر الصوت
+// 🔓 فك الحظر
 document.body.addEventListener("click", ()=>{
   if(!audioUnlocked){
     audio.play().then(()=>{
@@ -162,15 +200,33 @@ document.body.addEventListener("click", ()=>{
   }
 });
 
-// تشغيل صوت قوي
+// 🔊 + 📳 تنبيه مرتين
 function playStrongAlert(){
-  let count=0;
-  const i=setInterval(()=>{
-    audio.currentTime=0;
+  let count = 0;
+
+  function play(){
+    audio.currentTime = 0;
     audio.play().catch(()=>{});
+
+    if("vibrate" in navigator){
+      navigator.vibrate([300,150,300,150,500]);
+    }
+
     count++;
-    if(count>=5) clearInterval(i);
-  },1000);
+    if(count < 2){
+      setTimeout(play,1200);
+    }
+  }
+
+  play();
+}
+
+// 🚨 بانر
+function showBanner(){
+  alertBanner.classList.add("show");
+  setTimeout(()=>{
+    alertBanner.classList.remove("show");
+  },3000);
 }
 
 // زر التفعيل
@@ -178,46 +234,46 @@ enableNotifBtn.onclick = async ()=>{
   try{
     await audio.play();
     audio.pause();
-    audio.currentTime=0;
+    audio.currentTime = 0;
 
     const perm = await Notification.requestPermission();
-    if(perm==="granted"){
-      notifEnabled=true;
-      alert("تم تفعيل الصوت والإشعارات ✅");
+
+    if(perm === "granted"){
+      notifEnabled = true;
+      alert("تم تفعيل الصوت ✅");
     }
   }catch{
-    alert("اضغط على الشاشة مرة لتفعيل الصوت");
+    alert("اضغط على الشاشة أولاً");
   }
 };
 
-// اختبار
-function testSound(){
-  playStrongAlert();
-}
-
 // جلب الطلبات
-db.ref("orders").on("value", snapshot=>{
-  const data = snapshot.val()||{};
-  let newOrder=false;
-  allOrders=[];
+db.ref("orders").on("value", snap=>{
+  const data = snap.val() || {};
+  let newOrder = false;
+  allOrders = [];
 
   Object.keys(data).forEach(table=>{
     Object.keys(data[table]).forEach(id=>{
-      const order=data[table][id];
+      const o = data[table][id];
 
-      if(!order.seen){
-        newOrder=true;
+      if(!o.seen){
+        newOrder = true;
         db.ref(`orders/${table}/${id}/seen`).set(true);
       }
 
-      allOrders.push({id,table,...order});
+      allOrders.push({id,table,...o});
     });
   });
 
+  // 🚨 عند طلب جديد
   if(newOrder && notifEnabled){
-    new Notification("طلب جديد ☕");
-    playStrongAlert();
-    navigator.vibrate([500,200,500]);
+    showBanner();       // رسالة
+    playStrongAlert();  // صوت + اهتزاز
+
+    if(Notification.permission === "granted"){
+      new Notification("طلب جديد ☕");
+    }
   }
 
   render();
@@ -227,24 +283,24 @@ db.ref("orders").on("value", snapshot=>{
 function render(){
   container.innerHTML="";
 
-  allOrders.forEach(o=>{
+  allOrders
+  .sort((a,b)=>b.timestamp-a.timestamp)
+  .forEach(o=>{
+
     const card=document.createElement("div");
     card.className="order-card";
 
-    // ✨ وميض إذا جديد
-    if(o.seen === true && Date.now() - o.timestamp < 120000){
+    // ✨ وميض
+    if(Date.now() - o.timestamp < 120000){
       card.classList.add("blink");
-
-      setTimeout(()=>{
-        card.classList.remove("blink");
-      },120000);
+      setTimeout(()=>card.classList.remove("blink"),120000);
     }
 
     card.innerHTML=`
       <div class="order-header">
         <span>طاولة ${o.table}</span>
-        <span class="status ${o.status || "pending"}">
-        ${o.status==="done"?"جاهز":"قيد التحضير"}
+        <span class="status ${o.status||"pending"}">
+          ${o.status==="done"?"جاهز":o.status==="cancel"?"ملغي":"قيد التحضير"}
         </span>
       </div>
 
@@ -257,32 +313,7 @@ function render(){
       <div class="total">
         ${o.orders.reduce((s,i)=>s+i.price*i.quantity,0)} د.ع
       </div>
-
-      <div class="actions">
-        <button class="delete">حذف</button>
-        <button class="edit">ملاحظة</button>
-        <button class="statusBtn">حالة</button>
-        <button class="reset">تصفير</button>
-      </div>
     `;
-
-    const total = o.orders.reduce((s,i)=>s+i.price*i.quantity,0);
-
-    card.querySelector(".delete").onclick=()=> db.ref(`orders/${o.table}/${o.id}`).remove();
-
-    card.querySelector(".edit").onclick=()=>{
-      let n=prompt("ملاحظة:", o.note||"");
-      if(n!==null) db.ref(`orders/${o.table}/${o.id}`).update({note:n});
-    }
-
-    card.querySelector(".statusBtn").onclick=()=>{
-      let s=prompt("pending / done / cancel");
-      if(s) db.ref(`orders/${o.table}/${o.id}`).update({status:s});
-    }
-
-    card.querySelector(".reset").onclick=()=>{
-      db.ref(`orders/${o.table}/${o.id}`).remove();
-    }
 
     container.appendChild(card);
   });
