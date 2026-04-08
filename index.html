@@ -119,6 +119,16 @@ h1{
   border-radius:10px;
 }
 
+.order-note{
+  margin-top:10px;
+  padding:8px;
+  background:rgba(212,175,55,0.1);
+  border-left:4px solid #d4af37;
+  border-radius:10px;
+  font-style:italic;
+  color:#d4af37;
+}
+
 .total{
   text-align:right;
   margin-top:10px;
@@ -144,6 +154,7 @@ button{
 .edit{background:#2196f3;}
 .statusBtn{background:#d4af37; color:black;}
 .reset{background:#2ecc71;}
+.dailyProfit{background:#f1c40f; color:black;}
 </style>
 </head>
 
@@ -154,11 +165,11 @@ button{
 <h1>☕ لوحة تحكم 88 Café</h1>
 
 <div id="filters">
-  <button id="dailyProfitBtn">💰 الربح اليومي</button>
   <input id="filterTable" placeholder="رقم الطاولة">
   <input id="filterItem" placeholder="اسم الصنف">
   <button id="enableNotif">تفعيل الصوت 🔊</button>
   <button onclick="playStrongAlert()">اختبار الصوت</button>
+  <button id="dailyProfitBtn">💰 الربح اليومي</button>
 </div>
 
 <div id="ordersContainer"></div>
@@ -179,6 +190,7 @@ const alertBanner = document.getElementById("alertBanner");
 let notifEnabled = false;
 let audioUnlocked = false;
 let allOrders = [];
+let dailyProfit = 0;
 
 // 🔊 صوت من جهازك
 const audio = new Audio("sound.mp3");
@@ -235,21 +247,26 @@ enableNotifBtn.onclick = async ()=>{
   }
 };
 
+// زر الربح اليومي
+document.getElementById("dailyProfitBtn").onclick = () => {
+  alert(`💰 إجمالي الربح اليومي: ${dailyProfit} د.ع`);
+};
+
 // جلب الطلبات
 db.ref("orders").on("value", snap=>{
   const data = snap.val() || {};
   let newOrder = false;
   allOrders = [];
 
-  Object.keys(data).forEach(table=>{
-    Object.keys(data[table]).forEach(id=>{
+  Object.keys(data).forEach(table => {
+    Object.keys(data[table]).forEach(id => {
       const o = data[table][id];
-      if(!allOrders.find(x=>x.id===id && x.table===table)){
+      if(!allOrders.some(x => x.id === id && x.table === table)) {
         if(!o.seen){
           newOrder = true;
           db.ref(`orders/${table}/${id}/seen`).set(true);
         }
-        allOrders.push({id,table,...o});
+        allOrders.push({id, table, ...o});
       }
     });
   });
@@ -302,6 +319,8 @@ function render(){
         </div>
       `).join("")}
 
+      ${o.note ? `<div class="order-note">💬 الملاحظة: ${o.note}</div>` : ""}
+
       <div class="total">
         ${o.orders.reduce((s,i)=>s+i.price*i.quantity,0)} د.ع
       </div>
@@ -314,16 +333,18 @@ function render(){
       </div>
     `;
 
-    const total = o.orders.reduce((s,i)=>s+i.price*i.quantity,0);
-
     // أزرار
     card.querySelector(".delete").onclick=()=>{ 
       if(confirm("حذف الطلب؟")) db.ref(`orders/${o.table}/${o.id}`).remove();
     }
 
     card.querySelector(".edit").onclick=()=>{ 
-      let n=prompt("ملاحظة:", o.note||"");
-      if(n!==null) db.ref(`orders/${o.table}/${o.id}`).update({note:n});
+      let n = prompt("ملاحظة:", o.note || "");
+      if(n !== null) {
+        db.ref(`orders/${o.table}/${o.id}`).update({note: n}).then(() => {
+          render();
+        });
+      }
     }
 
     card.querySelector(".statusBtn").onclick=()=>{ 
@@ -332,7 +353,11 @@ function render(){
     }
 
     card.querySelector(".reset").onclick=()=>{ 
-      if(confirm("تصفير الطاولة؟")) db.ref(`orders/${o.table}/${o.id}`).remove();
+      if(confirm("تصفير الطاولة؟")){
+        // إضافة المجموع للربح اليومي
+        dailyProfit += o.orders.reduce((s,i)=>s+i.price*i.quantity,0);
+        db.ref(`orders/${o.table}/${o.id}`).remove();
+      }
     }
 
     container.appendChild(card);
@@ -342,21 +367,6 @@ function render(){
 // فلترة
 document.getElementById("filterTable").oninput = render;
 document.getElementById("filterItem").oninput = render;
-// زر الربح اليومي
-document.getElementById("dailyProfitBtn").onclick = async () => {
-  const snap = await db.ref("orders").once("value");
-  const data = snap.val() || {};
-  let totalProfit = 0;
-  
-  Object.keys(data).forEach(table => {
-    Object.keys(data[table]).forEach(id => {
-      const o = data[table][id];
-      totalProfit += o.orders.reduce((s,i)=>s+i.price*i.quantity,0);
-    });
-  });
-  
-  alert(`💰 إجمالي الربح اليومي: ${totalProfit} د.ع`);
-};
 
 </script>
 </body>
